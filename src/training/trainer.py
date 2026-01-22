@@ -12,6 +12,7 @@ import wandb
 from typing import Optional, Dict, Any
 import time
 import subprocess
+import itertools
 
 from ..models import GPT2
 from ..config import Config
@@ -273,6 +274,10 @@ class Trainer:
         if self.config.wandb.enabled and not wandb.run:
             self._init_wandb(resume_run_id=resume_wandb_id)
         
+        # Track if we're resuming in the middle of an epoch
+        resume_epoch = self.current_epoch
+        resume_step = self.global_step
+        
         for epoch in range(self.current_epoch, max_epochs):
             self.current_epoch = epoch
             self.model.train()
@@ -280,16 +285,45 @@ class Trainer:
             accumulated_loss = 0.0
             accumulated_steps = 0
             
-            progress_bar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{max_epochs}")
+            # Calculate starting batch index when resuming
+            # Each step processes gradient_accumulation_steps batches
+            start_batch_idx = 0
+            if epoch == resume_epoch and resume_step > 0:
+                # We're resuming in the middle of an epoch
+                # Calculate which batch we should start from
+                start_batch_idx = resume_step * gradient_accumulation_steps
+                print(f"📊 Resuming from batch {start_batch_idx} (step {resume_step})")
+                # Reset resume flags after first use
+                resume_epoch = -1
+                resume_step = 0
             
-            for batch_idx, batch in enumerate(progress_bar):
+            total_batches = len(self.train_loader)
+            progress_bar = tqdm(
+                self.train_loader, 
+                desc=f"Epoch {epoch+1}/{max_epochs}",
+                initial=start_batch_idx,
+                total=total_batches
+            )
+            
+            # Skip batches if resuming in the middle of an epoch
+            batch_iter = iter(progress_bar)
+            if start_batch_idx > 0:
+                print(f"⏩ Skipping {start_batch_idx} batches to resume from step {self.global_step}...")
+                # Manually skip batches (this allows tqdm to show progress)
+                for _ in range(start_batch_idx):
+                    next(batch_iter, None)
+                    progress_bar.update(1)
+            
+            for batch_idx, batch in enumerate(batch_iter):
+                # Adjust batch_idx to account for skipped batches
+                actual_batch_idx = start_batch_idx + batch_idx
                 # Training step
                 metrics = self.train_step(batch)
                 accumulated_loss += metrics['loss']
                 accumulated_steps += 1
                 
                 # Gradient accumulation
-                if (batch_idx + 1) % gradient_accumulation_steps == 0:
+                if (actual_batch_idx + 1) % gradient_accumulation_steps == 0:
                     self.optimizer_step()
                     self.global_step += 1
                     
