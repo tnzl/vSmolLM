@@ -8,7 +8,6 @@ PyTorch implementation of GPT-2 from scratch with training on WikiText-103.
 - WikiText-103 dataset support with automatic download
 - Mixed precision training (FP16), gradient accumulation, learning rate warmup
 - Weights & Biases integration for experiment tracking
-- Memory-optimized training script
 
 ## Installation
 
@@ -22,11 +21,6 @@ wandb login  # Optional
 ## Quick Start
 
 Train a model:
-```bash
-bash scripts/train_with_memory_fix.sh --config configs/wikitext103.yaml
-```
-
-Or use the Python script directly:
 ```bash
 python scripts/train.py --config configs/wikitext103.yaml
 ```
