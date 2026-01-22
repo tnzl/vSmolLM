@@ -1,0 +1,52 @@
+# WikiText-103 Training Configuration
+
+# Model Configuration
+model:
+  vocab_size: 50257  # GPT-2 vocabulary size
+  embed_dim: 768     # Embedding dimension
+  num_layers: 12     # Number of transformer layers
+  num_heads: 12      # Number of attention heads
+  ffn_dim: 3072      # Feed-forward network dimension
+  max_seq_len: 512   # REDUCED: Lower sequence length for 8GB GPU stability
+  dropout: 0.1       # Dropout rate
+  layer_norm_eps: 0.00001
+  bias: true
+
+# Training Configuration
+training:
+  batch_size: 4                     # REDUCED: Account for optimizer states and training overhead
+  gradient_accumulation_steps: 8     # INCREASED: Maintain effective batch size = 32
+  learning_rate: 0.0006             # Learning rate (6e-4)
+  weight_decay: 0.1                 # Weight decay
+  beta1: 0.9                        # Adam beta1
+  beta2: 0.95                       # Adam beta2
+  max_epochs: 10                    # Maximum number of epochs
+  warmup_steps: 2000                # Warmup steps for learning rate
+  max_grad_norm: 1.0                # Gradient clipping
+  use_mixed_precision: true         # Use mixed precision training (FP16)
+  eval_interval: 500                # Evaluation interval (steps)
+  save_interval: 1000               # Checkpoint save interval (steps)
+  log_interval: 10                  # Logging interval (steps)
+  resume_from: null                 # Path to checkpoint to resume from
+
+# Data Configuration
+data:
+  data_dir: "./data"                # Dataset directory
+  max_length: 512                   # REDUCED: Matches model max_seq_len
+  num_workers: 4                    # DataLoader workers
+  pin_memory: true                  # Pin memory for faster GPU transfer
+
+# Weights & Biases Configuration
+wandb:
+  project: "gpt2-wikitext103"       # W&B project name
+  entity: null                      # W&B entity (username/team)
+  name: null                        # Run name (auto-generated if null)
+  tags:                             # Tags for the run
+    - "gpt2"
+    - "wikitext103"
+    - "from-scratch"
+  enabled: true                     # Enable/disable W&B logging
+
+# Output Configuration
+output_dir: "./outputs"             # Output directory for checkpoints
+seed: 42                            # Random seed

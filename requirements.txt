@@ -1,0 +1,22 @@
+# Core Dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+
+# Weights & Biases
+wandb>=0.15.0
+
+# Transformers (for tokenizer)
+transformers>=4.30.0
+
+# Datasets (for dataset loading)
+datasets>=2.14.0
+
+# Configuration
+pyyaml>=6.0
+
+# Progress bars
+tqdm>=4.65.0
+
+# Data handling
+requests>=2.31.0
