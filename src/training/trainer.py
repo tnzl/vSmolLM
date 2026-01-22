@@ -88,10 +88,14 @@ class Trainer:
         # W&B initialization (will be done after checkpoint loading if resuming)
         # Don't initialize here if we might be resuming
         
-        # Temperature monitoring settings
-        self.max_safe_temp = 80.0  # Target: ≤ 80°C (ideally 72-76°C)
-        self.critical_temp = 83.0  # Pause if above this
-        self.ideal_temp = 76.0     # Resume when below this
+        # Temperature monitoring settings (from config or defaults)
+        if config and hasattr(config, 'gpu'):
+            self.cooldown_start_temp = config.gpu.cooldown_start_temp
+            self.cooldown_target_temp = config.gpu.cooldown_target_temp
+        else:
+            # Fallback defaults if config is not provided
+            self.cooldown_start_temp = 83.0  # Start cooldown when temperature reaches this
+            self.cooldown_target_temp = 76.0  # Resume when temperature drops below this
     
     def _setup_optimizer(self) -> torch.optim.Optimizer:
         """Setup optimizer"""
@@ -146,11 +150,14 @@ class Trainer:
             self.config.wandb.enabled = False
     
     def _setup_temperature_monitoring(self):
-        """Setup temperature monitoring settings"""
-        # Temperature monitoring settings
-        self.max_safe_temp = 80.0  # Target: ≤ 80°C (ideally 72-76°C)
-        self.critical_temp = 83.0  # Pause if above this
-        self.ideal_temp = 76.0     # Resume when below this
+        """Setup temperature monitoring settings from config"""
+        if self.config and hasattr(self.config, 'gpu'):
+            self.cooldown_start_temp = self.config.gpu.cooldown_start_temp
+            self.cooldown_target_temp = self.config.gpu.cooldown_target_temp
+        else:
+            # Fallback defaults if config is not provided
+            self.cooldown_start_temp = 83.0  # Start cooldown when temperature reaches this
+            self.cooldown_target_temp = 76.0  # Resume when temperature drops below this
     
     def train_step(self, batch: Dict[str, torch.Tensor]) -> Dict[str, float]:
         """
@@ -577,10 +584,10 @@ class Trainer:
                 # Fallback to just temperature if full metrics unavailable
                 wandb.log({'gpu/temperature': avg_temp}, step=self.global_step)
         
-        # Check if temperature is critical
-        if avg_temp >= self.critical_temp:
-            print(f"🚨 GPU temperature is CRITICAL: {avg_temp:.1f}°C (≥ {self.critical_temp}°C)")
-            print(f"⏸️  Pausing training until temperature drops below {self.ideal_temp}°C...")
+        # Check if temperature requires cooldown
+        if avg_temp >= self.cooldown_start_temp:
+            print(f"🚨 GPU temperature requires cooldown: {avg_temp:.1f}°C (≥ {self.cooldown_start_temp}°C)")
+            print(f"⏸️  Pausing training until temperature drops below {self.cooldown_target_temp}°C...")
             
             pause_start = time.time()
             check_count = 0
@@ -598,20 +605,16 @@ class Trainer:
                 elapsed = time.time() - pause_start
                 print(f"   Check #{check_count}: {current_temp:.1f}°C (elapsed: {elapsed/60:.1f} min)")
                 
-                if current_temp < self.ideal_temp:
-                    print(f"✅ GPU temperature safe: {current_temp:.1f}°C (< {self.ideal_temp}°C)")
+                if current_temp < self.cooldown_target_temp:
+                    print(f"✅ GPU temperature safe: {current_temp:.1f}°C (< {self.cooldown_target_temp}°C)")
                     print(f"▶️  Resuming training...")
                     break
                 
-                if current_temp >= self.critical_temp:
+                if current_temp >= self.cooldown_start_temp:
                     print(f"   ⚠️  Still too hot. Waiting...")
         
-        elif avg_temp >= self.max_safe_temp:
-            print(f"⚠️  GPU temperature is warm: {avg_temp:.1f}°C (≥ {self.max_safe_temp}°C)")
-            print(f"   Consider monitoring. Training will continue but may throttle.")
-        
         else:
-            print(f"✅ GPU temperature is healthy: {avg_temp:.1f}°C (< {self.max_safe_temp}°C)")
+            print(f"✅ GPU temperature is healthy: {avg_temp:.1f}°C (< {self.cooldown_start_temp}°C)")
     
     def save_checkpoint(self, filename: str) -> bool:
         """

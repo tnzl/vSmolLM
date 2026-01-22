@@ -59,12 +59,20 @@ class WandBConfig:
 
 
 @dataclass
+class GpuConfig:
+    """GPU temperature monitoring configuration"""
+    cooldown_start_temp: float = 83.0   # Start cooldown when temperature reaches this
+    cooldown_target_temp: float = 76.0  # Resume training when temperature drops below this
+
+
+@dataclass
 class Config:
     """Main configuration class"""
     model: ModelConfig = field(default_factory=ModelConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     data: DataConfig = field(default_factory=DataConfig)
     wandb: WandBConfig = field(default_factory=WandBConfig)
+    gpu: GpuConfig = field(default_factory=GpuConfig)
     output_dir: str = "./outputs"
     seed: int = 42
     
@@ -81,6 +89,8 @@ class Config:
             config.data = DataConfig(**config_dict['data'])
         if 'wandb' in config_dict:
             config.wandb = WandBConfig(**config_dict['wandb'])
+        if 'gpu' in config_dict:
+            config.gpu = GpuConfig(**config_dict['gpu'])
         if 'output_dir' in config_dict:
             config.output_dir = config_dict['output_dir']
         if 'seed' in config_dict:
@@ -95,6 +105,7 @@ class Config:
             'training': self.training.__dict__,
             'data': self.data.__dict__,
             'wandb': self.wandb.__dict__,
+            'gpu': self.gpu.__dict__,
             'output_dir': self.output_dir,
             'seed': self.seed
         }

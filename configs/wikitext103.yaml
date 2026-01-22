@@ -47,6 +47,11 @@ wandb:
     - "from-scratch"
   enabled: true                     # Enable/disable W&B logging
 
+# GPU Temperature Monitoring
+gpu:
+  cooldown_start_temp: 81.0         # Start cooldown when temperature reaches this
+  cooldown_target_temp: 76.0        # Resume training when temperature drops below this
+
 # Output Configuration
 output_dir: "./outputs"             # Output directory for checkpoints
 seed: 42                            # Random seed
